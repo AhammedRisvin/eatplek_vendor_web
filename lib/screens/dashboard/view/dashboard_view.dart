@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import '../../side_nav/view_model/side_nav_provider.dart';
 import '../../widgets/common_table.dart';
 import '../view_model/dashboard_provider.dart';
 import 'widget/order_details_dialog.dart';
@@ -31,16 +32,23 @@ class DashboardView extends StatefulWidget {
 }
 
 class _DashboardViewState extends State<DashboardView> {
+  static const int _kTabIndex = 0;
+  bool _hasFetched = false;
+
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final p = context.read<DashboardProvider>();
-      p.getDashboardStats(context: context);
-      p.getRevenueData(context: context);
-      p.getOrders(context: context, page: 1);
-      p.startCountdown();
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nav = context.read<SideNavProvider>();
+    if (nav.selectedIndex == _kTabIndex && !_hasFetched) {
+      _hasFetched = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final p = context.read<DashboardProvider>();
+        p.getDashboardStats(context: context);
+        p.getRevenueData(context: context);
+        p.getOrders(context: context, page: 1);
+        p.startCountdown();
+      });
+    }
   }
 
   @override

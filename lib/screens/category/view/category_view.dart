@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../dashboard/view/widget/top_bar.dart';
+import '../../side_nav/view_model/side_nav_provider.dart';
 import '../../widgets/common_table.dart';
 import '../view_model/category_provider.dart';
 
@@ -20,12 +21,22 @@ class CategoryView extends StatefulWidget {
 }
 
 class _CategoryViewState extends State<CategoryView> {
+  static const int _kTabIndex = 7;
+  bool _hasFetched = false;
+
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CategoryProvider>().getCategoryFn(context: context, page: 1);
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nav = context.read<SideNavProvider>();
+    if (nav.selectedIndex == _kTabIndex && !_hasFetched) {
+      _hasFetched = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<CategoryProvider>().getCategoryFn(
+          context: context,
+          page: 1,
+        );
+      });
+    }
   }
 
   @override

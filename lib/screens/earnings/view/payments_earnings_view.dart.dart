@@ -12,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../../dashboard/model/all_orders_model.dart';
 import '../../dashboard/view/widget/stats_row.dart';
 import '../../dashboard/view/widget/top_bar.dart';
+import '../../side_nav/view_model/side_nav_provider.dart';
 import '../../widgets/common_table.dart';
 import '../view_model/revenue_notify_listner.dart';
 
@@ -31,14 +32,21 @@ class PaymentsEarningsView extends StatefulWidget {
 }
 
 class _PaymentsEarningsViewState extends State<PaymentsEarningsView> {
+  static const int _kTabIndex = 3;
+  bool _hasFetched = false;
+
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final p = context.read<RevenueNotifylistner>();
-      p.getRevenueDataFn(context: context);
-      p.getAllEarningFn(context: context, page: 1);
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nav = context.read<SideNavProvider>();
+    if (nav.selectedIndex == _kTabIndex && !_hasFetched) {
+      _hasFetched = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final p = context.read<RevenueNotifylistner>();
+        p.getRevenueDataFn(context: context);
+        p.getAllEarningFn(context: context, page: 1);
+      });
+    }
   }
 
   @override

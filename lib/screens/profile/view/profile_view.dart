@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../dashboard/view/widget/top_bar.dart';
+import '../../side_nav/view_model/side_nav_provider.dart';
 import '../view_model/profile_provider.dart';
 
 class ProfileSettingsView extends StatefulWidget {
@@ -18,12 +19,19 @@ class ProfileSettingsView extends StatefulWidget {
 }
 
 class _ProfileSettingsViewState extends State<ProfileSettingsView> {
+  static const int _kTabIndex = 9;
+  bool _hasFetched = false;
+
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ProfileProvider>().getVendorProfileFn(context: context);
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nav = context.read<SideNavProvider>();
+    if (nav.selectedIndex == _kTabIndex && !_hasFetched) {
+      _hasFetched = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<ProfileProvider>().getVendorProfileFn(context: context);
+      });
+    }
   }
 
   @override

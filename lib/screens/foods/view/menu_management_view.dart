@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../dashboard/view/widget/top_bar.dart';
 import '../../food_details/view/food_detail_view.dart';
+import '../../side_nav/view_model/side_nav_provider.dart';
 import '../view_model/foods_provider.dart';
 
 class MenuManagementView extends StatefulWidget {
@@ -19,15 +20,24 @@ class MenuManagementView extends StatefulWidget {
 }
 
 class _MenuManagementViewState extends State<MenuManagementView> {
+  // Tab indices: 2 = Menu Management, 8 = Special Day Pre-BK
+  bool _hasFetched = false;
+
+  int get _kTabIndex => widget.isPrebook ? 8 : 2;
+
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<FoodsProvider>().getFoodFn(
-        context: context,
-        isPrebook: widget.isPrebook,
-      );
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nav = context.read<SideNavProvider>();
+    if (nav.selectedIndex == _kTabIndex && !_hasFetched) {
+      _hasFetched = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<FoodsProvider>().getFoodFn(
+          context: context,
+          isPrebook: widget.isPrebook,
+        );
+      });
+    }
   }
 
   @override

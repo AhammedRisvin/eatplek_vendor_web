@@ -9,6 +9,7 @@ import '../../dashboard/model/all_orders_model.dart';
 import '../../dashboard/view/widget/order_details_dialog.dart';
 import '../../dashboard/view/widget/stats_row.dart';
 import '../../dashboard/view/widget/top_bar.dart';
+import '../../side_nav/view_model/side_nav_provider.dart';
 import '../../widgets/common_table.dart';
 import '../view_model/order_provider.dart';
 
@@ -29,14 +30,21 @@ class OrdersManagementView extends StatefulWidget {
 }
 
 class _OrdersManagementViewState extends State<OrdersManagementView> {
+  static const int _kTabIndex = 1;
+  bool _hasFetched = false;
+
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final p = context.read<OrderProvider>();
-      p.getOrderStats(context: context);
-      p.getAllOrdersFn(context: context, page: 1);
-    });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final nav = context.read<SideNavProvider>();
+    if (nav.selectedIndex == _kTabIndex && !_hasFetched) {
+      _hasFetched = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final p = context.read<OrderProvider>();
+        p.getOrderStats(context: context);
+        p.getAllOrdersFn(context: context, page: 1);
+      });
+    }
   }
 
   @override
