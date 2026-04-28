@@ -9,8 +9,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../../dashboard/model/all_orders_model.dart';
 import '../../dashboard/view/widget/top_bar.dart';
+import '../../widgets/common_table.dart';
 import '../view_model.dart/banner_notifylistener.dart';
 
 class BannerView extends StatefulWidget {
@@ -88,7 +88,7 @@ class _BannerViewState extends State<BannerView> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                _BannerTable(),
+                const BannerTable(),
               ],
             ),
           ),
@@ -98,8 +98,16 @@ class _BannerViewState extends State<BannerView> {
   }
 }
 
-// ─── Banner table ─────────────────────────────────────────────────────────────
-class _BannerTable extends StatelessWidget {
+const _kBannerColumns = [
+  AppTableColumn(label: 'Image', flex: 3),
+  AppTableColumn(label: 'Start Date', flex: 3),
+  AppTableColumn(label: 'End Date', flex: 3),
+  AppTableColumn(label: 'Action', flex: 2),
+];
+
+class BannerTable extends StatelessWidget {
+  const BannerTable({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Consumer<BannerNotifiylistener>(
@@ -107,86 +115,18 @@ class _BannerTable extends StatelessWidget {
         final banners = p.bannerModel?.data?.banners ?? [];
         final pagination = p.bannerModel?.data?.pagination;
 
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(25),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
-          ),
-          child: Column(
-            children: [
-              // Header
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColor.darkBlue.withOpacity(.1),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(25),
-                    topRight: Radius.circular(25),
-                  ),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                child: const Row(
-                  children: [
-                    _HeaderCell('Image', flex: 3),
-                    _HeaderCell('Start Date', flex: 3),
-                    _HeaderCell('End Date', flex: 3),
-                    _HeaderCell('Action', flex: 2),
-                  ],
-                ),
-              ),
-
-              // Body
-              if (p.isGetLoading)
-                const Padding(
-                  padding: EdgeInsets.all(60),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (banners.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(60),
-                  child: Center(
-                    child: Text(
-                      'No banners found',
-                      style: GoogleFonts.urbanist(
-                        color: AppColor.black60,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                ...banners.map((b) => _BannerRow(banner: b)),
-
-              // Pagination
-              if (pagination != null) _PaginationBar(pagination: pagination),
-            ],
-          ),
+        return AppDataTable(
+          columns: _kBannerColumns,
+          isLoading: p.isGetLoading,
+          isEmpty: banners.isEmpty,
+          emptyMessage: 'No banners found',
+          rows: banners.map((b) => _BannerRow(banner: b)).toList(),
+          pagination: pagination,
+          onPageChange: (page) => context
+              .read<BannerNotifiylistener>()
+              .getBannerListFn(context: context, page: page),
         );
       },
-    );
-  }
-}
-
-class _HeaderCell extends StatelessWidget {
-  final String text;
-  final int flex;
-  const _HeaderCell(this.text, {required this.flex});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      flex: flex,
-      child: Text(
-        text,
-        style: GoogleFonts.urbanist(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: AppColor.darkBlue,
-        ),
-      ),
     );
   }
 }
@@ -195,10 +135,8 @@ class _BannerRow extends StatelessWidget {
   final BannerList banner;
   const _BannerRow({required this.banner});
 
-  String _formatDate(DateTime? dt) {
-    if (dt == null) return '--';
-    return DateFormat('dd-MM-yyyy').format(dt);
-  }
+  String _fmt(DateTime? dt) =>
+      dt == null ? '--' : DateFormat('dd-MM-yyyy').format(dt);
 
   @override
   Widget build(BuildContext context) {
@@ -209,7 +147,6 @@ class _BannerRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
         children: [
-          // Image
           Expanded(
             flex: 3,
             child: ClipRRect(
@@ -221,31 +158,13 @@ class _BannerRow extends StatelessWidget {
                       width: 60,
                       height: 44,
                       fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => _Placeholder(),
+                      errorWidget: (_, __, ___) => _BannerPlaceholder(),
                     )
-                  : _Placeholder(),
+                  : _BannerPlaceholder(),
             ),
           ),
-
-          // Start date
-          Expanded(
-            flex: 3,
-            child: Text(
-              _formatDate(banner.endDate),
-              style: GoogleFonts.urbanist(fontSize: 13, color: AppColor.black),
-            ),
-          ),
-
-          // End date
-          Expanded(
-            flex: 3,
-            child: Text(
-              _formatDate(banner.endDate),
-              style: GoogleFonts.urbanist(fontSize: 13, color: AppColor.black),
-            ),
-          ),
-
-          // Actions
+          Expanded(flex: 3, child: _cell(_fmt(banner.endDate))),
+          Expanded(flex: 3, child: _cell(_fmt(banner.endDate))),
           Expanded(
             flex: 2,
             child: Row(
@@ -286,105 +205,22 @@ class _BannerRow extends StatelessWidget {
       ),
     );
   }
+
+  Widget _cell(String t) =>
+      Text(t, style: GoogleFonts.urbanist(fontSize: 13, color: AppColor.black));
 }
 
-class _Placeholder extends StatelessWidget {
+class _BannerPlaceholder extends StatelessWidget {
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 60,
-      height: 44,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Icon(
-        Icons.image_outlined,
-        color: Color(0xFFD1D5DB),
-        size: 22,
-      ),
-    );
-  }
-}
-
-// ─── Pagination ───────────────────────────────────────────────────────────────
-class _PaginationBar extends StatelessWidget {
-  final Pagination pagination;
-  const _PaginationBar({required this.pagination});
-
-  @override
-  Widget build(BuildContext context) {
-    final page = pagination.currentPage ?? 1;
-    final limit = pagination.limit ?? 8;
-    final total = pagination.totalCount ?? 0;
-    final totalPages = pagination.totalPages ?? 1;
-    final start = (page - 1) * limit + 1;
-    final end = (page * limit).clamp(0, total);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-      child: Row(
-        children: [
-          Text(
-            '$start – $end of $total items',
-            style: GoogleFonts.urbanist(fontSize: 12, color: AppColor.black60),
-          ),
-          const Spacer(),
-          _PageBtn(
-            label: 'Previous',
-            enabled: page > 1,
-            onTap: () => context.read<BannerNotifiylistener>().getBannerListFn(
-              context: context,
-              page: page - 1,
-            ),
-          ),
-          const SizedBox(width: 8),
-          _PageBtn(
-            label: 'Next',
-            enabled: page < totalPages,
-            onTap: () => context.read<BannerNotifiylistener>().getBannerListFn(
-              context: context,
-              page: page + 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PageBtn extends StatelessWidget {
-  final String label;
-  final bool enabled;
-  final VoidCallback onTap;
-  const _PageBtn({
-    required this.label,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: enabled ? Colors.white : const Color(0xFFF5F6FA),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.urbanist(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: enabled ? AppColor.black : AppColor.black40,
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    width: 60,
+    height: 44,
+    decoration: BoxDecoration(
+      color: const Color(0xFFF3F4F6),
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: const Icon(Icons.image_outlined, color: Color(0xFFD1D5DB), size: 22),
+  );
 }
 
 // ─── Add / Edit Banner Dialog ─────────────────────────────────────────────────

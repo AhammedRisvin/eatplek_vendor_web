@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../dashboard/view/widget/top_bar.dart';
+import '../../widgets/common_table.dart';
 import '../view_model/delivery_boy_provider.dart';
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -104,7 +105,7 @@ class _DeliveryBoyViewState extends State<DeliveryBoyView> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _DeliveryTable(),
+                const DeliveryTable(),
               ],
             ),
           ),
@@ -186,107 +187,31 @@ class _SearchBar extends StatelessWidget {
   }
 }
 
-// ─── Table ────────────────────────────────────────────────────────────────────
-class _DeliveryTable extends StatelessWidget {
+const _kDeliveryColumns = [
+  AppTableColumn(label: 'Delivery Boy', flex: 3),
+  AppTableColumn(label: 'Email', flex: 3),
+  AppTableColumn(label: 'Phone Number', flex: 3),
+  AppTableColumn(label: 'Status', flex: 2),
+  AppTableColumn(label: 'Action', flex: 2),
+];
+
+class DeliveryTable extends StatelessWidget {
+  const DeliveryTable({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Consumer<DeliveryBoyProvider>(
       builder: (context, p, _) {
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(25),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
-          ),
-          child: Column(
-            children: [
-              // Header
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColor.darkBlue.withOpacity(.1),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(25),
-                    topRight: Radius.circular(25),
-                  ),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                child: const Row(
-                  children: [
-                    _H('Delivery Boy', flex: 3),
-                    _H('Email', flex: 3),
-                    _H('Phone Number', flex: 3),
-                    _H('Status', flex: 2),
-                    _H('Action', flex: 2),
-                  ],
-                ),
-              ),
-
-              if (p.isLoading)
-                const Padding(
-                  padding: EdgeInsets.all(60),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (p.deliveryBoys.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(60),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        const Icon(
-                          Icons.delivery_dining_outlined,
-                          size: 48,
-                          color: Color(0xFFD1D5DB),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No delivery boys added yet',
-                          style: GoogleFonts.urbanist(
-                            color: AppColor.black60,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Click "Add Delivery Boy" to add your first driver',
-                          style: GoogleFonts.urbanist(
-                            color: AppColor.black40,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                ...p.deliveryBoys.map((boy) => _DeliveryRow(boy: boy)),
-            ],
-          ),
+        // Delivery boys list has no pagination from the API currently
+        return AppDataTable(
+          columns: _kDeliveryColumns,
+          isLoading: p.isLoading,
+          isEmpty: p.deliveryBoys.isEmpty,
+          emptyMessage: 'No delivery boys added yet',
+          rows: p.deliveryBoys.map((b) => _DeliveryRow(boy: b)).toList(),
+          // No pagination prop → bar is hidden automatically
         );
       },
-    );
-  }
-}
-
-class _H extends StatelessWidget {
-  final String text;
-  final int flex;
-  const _H(this.text, {required this.flex});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      flex: flex,
-      child: Text(
-        text,
-        style: GoogleFonts.urbanist(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: AppColor.darkBlue,
-        ),
-      ),
     );
   }
 }
@@ -297,6 +222,8 @@ class _DeliveryRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isActive = boy['isActive'] == true;
+
     return Container(
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
@@ -348,11 +275,11 @@ class _DeliveryRow extends StatelessWidget {
           Expanded(
             flex: 2,
             child: Text(
-              boy['isActive'] == true ? 'Active' : 'Inactive',
+              isActive ? 'Active' : 'Inactive',
               style: GoogleFonts.urbanist(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
-                color: boy['isActive'] == true
+                color: isActive
                     ? const Color(0xFF16A34A)
                     : const Color(0xFFEF4444),
               ),

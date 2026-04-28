@@ -8,8 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
-import '../../dashboard/model/all_orders_model.dart';
 import '../../dashboard/view/widget/top_bar.dart';
+import '../../widgets/common_table.dart';
 import '../view_model/category_provider.dart';
 
 class CategoryView extends StatefulWidget {
@@ -87,7 +87,7 @@ class _CategoryViewState extends State<CategoryView> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                _CategoryTable(),
+                const CategoryTable(),
               ],
             ),
           ),
@@ -97,8 +97,15 @@ class _CategoryViewState extends State<CategoryView> {
   }
 }
 
-// ─── Category table ───────────────────────────────────────────────────────────
-class _CategoryTable extends StatelessWidget {
+const _kCategoryColumns = [
+  AppTableColumn(label: 'Image', flex: 3),
+  AppTableColumn(label: 'Name', flex: 5),
+  AppTableColumn(label: 'Action', flex: 2),
+];
+
+class CategoryTable extends StatelessWidget {
+  const CategoryTable({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Consumer<CategoryProvider>(
@@ -106,90 +113,22 @@ class _CategoryTable extends StatelessWidget {
         final categories = p.getCategoryModel?.data ?? [];
         final pagination = p.getCategoryModel?.pagination;
 
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(25),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
-          ),
-          child: Column(
-            children: [
-              // Header
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColor.darkBlue.withOpacity(.1),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(25),
-                    topRight: Radius.circular(25),
-                  ),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                child: const Row(
-                  children: [
-                    _HeaderCell('Image', flex: 3),
-                    _HeaderCell('Name', flex: 5),
-                    _HeaderCell('Action', flex: 2),
-                  ],
-                ),
-              ),
-
-              // Body
-              if (p.isLoading)
-                const Padding(
-                  padding: EdgeInsets.all(60),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (categories.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(60),
-                  child: Center(
-                    child: Text(
-                      'No categories found',
-                      style: GoogleFonts.urbanist(
-                        color: AppColor.black60,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                ...categories.map((c) => _CategoryRow(category: c)),
-
-              // Pagination
-              if (pagination != null) _PaginationBar(pagination: pagination),
-            ],
-          ),
+        return AppDataTable(
+          columns: _kCategoryColumns,
+          isLoading: p.isLoading,
+          isEmpty: categories.isEmpty,
+          emptyMessage: 'No categories found',
+          rows: categories.map((c) => _CategoryRow(category: c)).toList(),
+          pagination: pagination,
+          onPageChange: (page) => context
+              .read<CategoryProvider>()
+              .getCategoryFn(context: context, page: page),
         );
       },
     );
   }
 }
 
-class _HeaderCell extends StatelessWidget {
-  final String text;
-  final int flex;
-  const _HeaderCell(this.text, {required this.flex});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      flex: flex,
-      child: Text(
-        text,
-        style: GoogleFonts.urbanist(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: AppColor.darkBlue,
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Category row ─────────────────────────────────────────────────────────────
 class _CategoryRow extends StatelessWidget {
   final CategoryData category;
   const _CategoryRow({required this.category});
@@ -203,7 +142,6 @@ class _CategoryRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       child: Row(
         children: [
-          // Image
           Expanded(
             flex: 3,
             child: ClipRRect(
@@ -214,13 +152,11 @@ class _CategoryRow extends StatelessWidget {
                       width: 44,
                       height: 44,
                       fit: BoxFit.cover,
-                      errorWidget: (_, __, ___) => _ImgPlaceholder(),
+                      errorWidget: (_, __, ___) => _CategoryPlaceholder(),
                     )
-                  : _ImgPlaceholder(),
+                  : _CategoryPlaceholder(),
             ),
           ),
-
-          // Name
           Expanded(
             flex: 5,
             child: Text(
@@ -228,8 +164,6 @@ class _CategoryRow extends StatelessWidget {
               style: GoogleFonts.urbanist(fontSize: 13, color: AppColor.black),
             ),
           ),
-
-          // Actions
           Expanded(
             flex: 2,
             child: Row(
@@ -273,103 +207,21 @@ class _CategoryRow extends StatelessWidget {
   }
 }
 
-class _ImgPlaceholder extends StatelessWidget {
+class _CategoryPlaceholder extends StatelessWidget {
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: Color(0xFFF3F4F6),
-      ),
-      child: const Icon(
-        Icons.category_outlined,
-        color: Color(0xFFD1D5DB),
-        size: 20,
-      ),
-    );
-  }
-}
-
-// ─── Pagination ───────────────────────────────────────────────────────────────
-class _PaginationBar extends StatelessWidget {
-  final Pagination pagination;
-  const _PaginationBar({required this.pagination});
-
-  @override
-  Widget build(BuildContext context) {
-    final page = pagination.currentPage ?? 1;
-    final limit = pagination.limit ?? 8;
-    final total = pagination.totalCount ?? 0;
-    final totalPages = pagination.totalPages ?? 1;
-    final start = (page - 1) * limit + 1;
-    final end = (page * limit).clamp(0, total);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-      child: Row(
-        children: [
-          Text(
-            '$start – $end of $total items',
-            style: GoogleFonts.urbanist(fontSize: 12, color: AppColor.black60),
-          ),
-          const Spacer(),
-          _PageBtn(
-            label: 'Previous',
-            enabled: page > 1,
-            onTap: () => context.read<CategoryProvider>().getCategoryFn(
-              context: context,
-              page: page - 1,
-            ),
-          ),
-          const SizedBox(width: 8),
-          _PageBtn(
-            label: 'Next',
-            enabled: page < totalPages,
-            onTap: () => context.read<CategoryProvider>().getCategoryFn(
-              context: context,
-              page: page + 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PageBtn extends StatelessWidget {
-  final String label;
-  final bool enabled;
-  final VoidCallback onTap;
-  const _PageBtn({
-    required this.label,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: enabled ? Colors.white : const Color(0xFFF5F6FA),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.urbanist(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: enabled ? AppColor.black : AppColor.black40,
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => Container(
+    width: 44,
+    height: 44,
+    decoration: const BoxDecoration(
+      shape: BoxShape.circle,
+      color: Color(0xFFF3F4F6),
+    ),
+    child: const Icon(
+      Icons.category_outlined,
+      color: Color(0xFFD1D5DB),
+      size: 20,
+    ),
+  );
 }
 
 // ─── Add / Edit Category Dialog ───────────────────────────────────────────────

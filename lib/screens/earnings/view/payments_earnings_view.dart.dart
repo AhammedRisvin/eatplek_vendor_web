@@ -1,3 +1,7 @@
+// payments_earnings_view.dart  (refactored)
+//
+// EarningsPagination → converted to the shared Pagination model inline.
+
 import 'package:eatplek_vendor_web/constants/colors.dart';
 import 'package:eatplek_vendor_web/screens/earnings/model/earnings_model.dart';
 import 'package:flutter/material.dart';
@@ -5,9 +9,19 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../dashboard/model/all_orders_model.dart';
 import '../../dashboard/view/widget/stats_row.dart';
 import '../../dashboard/view/widget/top_bar.dart';
+import '../../widgets/common_table.dart';
 import '../view_model/revenue_notify_listner.dart';
+
+const _kEarningsColumns = [
+  AppTableColumn(label: 'Order ID', flex: 2),
+  AppTableColumn(label: 'Date', flex: 3),
+  AppTableColumn(label: 'Order Type', flex: 3),
+  AppTableColumn(label: 'Amount', flex: 2),
+  AppTableColumn(label: 'Status', flex: 2),
+];
 
 class PaymentsEarningsView extends StatefulWidget {
   const PaymentsEarningsView({super.key});
@@ -60,6 +74,8 @@ class _PaymentsEarningsViewState extends State<PaymentsEarningsView> {
                   ],
                 ),
                 const SizedBox(height: 20),
+
+                // Stats
                 Consumer<RevenueNotifylistner>(
                   builder: (context, p, _) {
                     final stats = p.earningStatsModel?.data;
@@ -93,6 +109,7 @@ class _PaymentsEarningsViewState extends State<PaymentsEarningsView> {
                   },
                 ),
                 const SizedBox(height: 24),
+
                 Text(
                   'Payments & Earnings',
                   style: GoogleFonts.urbanist(
@@ -102,7 +119,36 @@ class _PaymentsEarningsViewState extends State<PaymentsEarningsView> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                _EarningsTable(),
+
+                // ── Refactored table ─────────────────────────────────────
+                Consumer<RevenueNotifylistner>(
+                  builder: (context, p, _) {
+                    final orders = p.earningsModel?.data?.orders ?? [];
+                    final ep = p.earningsModel?.data?.pagination;
+
+                    // Convert EarningsPagination → shared Pagination model
+                    final pagination = ep == null
+                        ? null
+                        : Pagination(
+                            currentPage: ep.page,
+                            totalPages: ep.totalPages,
+                            totalCount: ep.total,
+                            limit: ep.limit,
+                          );
+
+                    return AppDataTable(
+                      columns: _kEarningsColumns,
+                      isLoading: p.isLoading,
+                      isEmpty: orders.isEmpty,
+                      emptyMessage: 'No earnings found',
+                      rows: orders.map((o) => _EarningRow(order: o)).toList(),
+                      pagination: pagination,
+                      onPageChange: (page) => context
+                          .read<RevenueNotifylistner>()
+                          .getAllEarningFn(context: context, page: page),
+                    );
+                  },
+                ),
               ],
             ),
           ),
@@ -112,101 +158,7 @@ class _PaymentsEarningsViewState extends State<PaymentsEarningsView> {
   }
 }
 
-// ─── Earnings table ───────────────────────────────────────────────────────────
-class _EarningsTable extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<RevenueNotifylistner>(
-      builder: (context, p, _) {
-        final orders = p.earningsModel?.data?.orders ?? [];
-        final pagination = p.earningsModel?.data?.pagination;
-
-        return Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(25),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColor.darkBlue.withOpacity(.1),
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(25),
-                    topRight: Radius.circular(25),
-                  ),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                child: const Row(
-                  children: [
-                    _HeaderCell('Order ID', flex: 2),
-                    _HeaderCell('Date', flex: 3),
-                    _HeaderCell('Order Type', flex: 3),
-                    _HeaderCell('Amount', flex: 2),
-                    _HeaderCell('Status', flex: 2),
-                  ],
-                ),
-              ),
-
-              // Body
-              if (p.isLoading)
-                const Padding(
-                  padding: EdgeInsets.all(60),
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              else if (orders.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.all(60),
-                  child: Center(
-                    child: Text(
-                      'No earnings found',
-                      style: GoogleFonts.urbanist(
-                        color: AppColor.black60,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                ...orders.map((order) => _EarningRow(order: order)),
-
-              // Pagination
-              if (pagination != null) _PaginationBar(pagination: pagination),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _HeaderCell extends StatelessWidget {
-  final String text;
-  final int flex;
-  const _HeaderCell(this.text, {required this.flex});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      flex: flex,
-      child: Text(
-        text,
-        style: GoogleFonts.urbanist(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: AppColor.darkBlue,
-        ),
-      ),
-    );
-  }
-}
-
+// ── Earning row ───────────────────────────────────────────────────────────────
 class _EarningRow extends StatelessWidget {
   final Order order;
   const _EarningRow({required this.order});
@@ -216,6 +168,7 @@ class _EarningRow extends StatelessWidget {
     final date = order.createdAt != null
         ? DateFormat('dd-MM-yyyy').format(order.createdAt!)
         : '--';
+    final isCompleted = (order.orderStatus ?? '').toLowerCase() == 'completed';
 
     return Container(
       decoration: const BoxDecoration(
@@ -224,44 +177,18 @@ class _EarningRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              '#${order.orderId ?? ''}',
-              style: GoogleFonts.urbanist(fontSize: 13, color: AppColor.black),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              date,
-              style: GoogleFonts.urbanist(fontSize: 13, color: AppColor.black),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              order.serviceType ?? '',
-              style: GoogleFonts.urbanist(fontSize: 13, color: AppColor.black),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              '₹${order.amount ?? 0}',
-              style: GoogleFonts.urbanist(fontSize: 13, color: AppColor.black),
-            ),
-          ),
+          Expanded(flex: 2, child: _cell('#${order.orderId ?? ''}')),
+          Expanded(flex: 3, child: _cell(date)),
+          Expanded(flex: 3, child: _cell(order.serviceType ?? '')),
+          Expanded(flex: 2, child: _cell('₹${order.amount ?? 0}')),
           Expanded(
             flex: 2,
             child: Text(
               order.orderStatus ?? '',
               style: GoogleFonts.urbanist(
                 fontSize: 13,
-                color: (order.orderStatus ?? '').toLowerCase() == 'completed'
-                    ? const Color(0xFF16A34A)
-                    : AppColor.black60,
                 fontWeight: FontWeight.w500,
+                color: isCompleted ? const Color(0xFF16A34A) : AppColor.black60,
               ),
             ),
           ),
@@ -269,84 +196,9 @@ class _EarningRow extends StatelessWidget {
       ),
     );
   }
-}
 
-// ─── Pagination ───────────────────────────────────────────────────────────────
-class _PaginationBar extends StatelessWidget {
-  final EarningsPagination pagination;
-  const _PaginationBar({required this.pagination});
-
-  @override
-  Widget build(BuildContext context) {
-    final start = ((pagination.page ?? 1) - 1) * (pagination.limit ?? 8) + 1;
-    final end = ((pagination.page ?? 1) * (pagination.limit ?? 8)).clamp(
-      0,
-      pagination.total ?? 0,
-    );
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-      child: Row(
-        children: [
-          Text(
-            '$start – $end of ${pagination.total ?? 0} items',
-            style: GoogleFonts.urbanist(fontSize: 12, color: AppColor.black60),
-          ),
-          const Spacer(),
-          _PageButton(
-            label: 'Previous',
-            enabled: (pagination.page ?? 1) > 1,
-            onTap: () => context.read<RevenueNotifylistner>().getAllEarningFn(
-              context: context,
-              page: (pagination.page ?? 1) - 1,
-            ),
-          ),
-          const SizedBox(width: 8),
-          _PageButton(
-            label: 'Next',
-            enabled: (pagination.page ?? 1) < (pagination.totalPages ?? 1),
-            onTap: () => context.read<RevenueNotifylistner>().getAllEarningFn(
-              context: context,
-              page: (pagination.page ?? 1) + 1,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PageButton extends StatelessWidget {
-  final String label;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  const _PageButton({
-    required this.label,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: enabled ? Colors.white : const Color(0xFFF5F6FA),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.urbanist(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: enabled ? AppColor.black : AppColor.black40,
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _cell(String text) => Text(
+    text,
+    style: GoogleFonts.urbanist(fontSize: 13, color: AppColor.black),
+  );
 }
