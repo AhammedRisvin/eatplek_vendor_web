@@ -2,6 +2,8 @@
 
 import 'dart:async';
 import 'dart:developer';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:js' as js;
 
 import 'package:eatplek_vendor_web/constants/colors.dart';
 import 'package:eatplek_vendor_web/constants/common_widget.dart';
@@ -57,7 +59,6 @@ class DashboardProvider extends ChangeNotifier {
       List response = await ServerClient.get(url, context);
       if (response.first >= 200 && response.first < 300) {
         final data = response.last;
-        // Parse daily/weekly revenue points from response
         List raw =
             data['data']?['revenueAnalytics']?['monthlyAmounts'] ??
             data['data']?['dailyRevenue'] ??
@@ -90,6 +91,13 @@ class DashboardProvider extends ChangeNotifier {
   int currentPage = 1;
   String orderFilter = 'All';
 
+  /// Tracks order IDs we've already seen so we can detect truly new arrivals.
+  final Set<String> _knownOrderIds = {};
+
+  /// Whether at least one fetch has completed (so we don't treat the very
+  /// first load as "new orders arrived").
+  bool _initialFetchDone = false;
+
   void setOrderFilter(String filter, BuildContext context) {
     orderFilter = filter;
     currentPage = 1;
@@ -97,11 +105,17 @@ class DashboardProvider extends ChangeNotifier {
     getOrders(context: context, page: 1);
   }
 
-  Future<void> getOrders({required BuildContext context, int page = 1}) async {
+  Future<void> getOrders({
+    required BuildContext context,
+    int page = 1,
+    bool silent = false, // true → skip loading indicator (background poll)
+  }) async {
     if (isLoadingOrders) return;
-    isLoadingOrders = true;
+    if (!silent) {
+      isLoadingOrders = true;
+      notifyListeners();
+    }
     currentPage = page;
-    notifyListeners();
     try {
       String url =
           'https://eatplek-server-dev.onrender.com/api/vendor/dashboard/all-orders?page=$page&limit=8';
@@ -111,7 +125,24 @@ class DashboardProvider extends ChangeNotifier {
       log('getOrders: $url');
       List response = await ServerClient.get(url, context);
       if (response.first >= 200 && response.first < 300) {
-        ordersModel = AllOrdersModel.fromJson(response.last);
+        final newModel = AllOrdersModel.fromJson(response.last);
+        final incomingIds = newModel.data.orders
+            .map((o) => o.orderId.toString())
+            .toSet();
+
+        if (_initialFetchDone) {
+          // Find order IDs that weren't in our known set
+          final brandNewIds = incomingIds.difference(_knownOrderIds);
+          if (brandNewIds.isNotEmpty) {
+            log('🔔 New orders detected: $brandNewIds');
+            _playBeep();
+            startCountdown(); // reset 3-min timer
+          }
+        }
+
+        _knownOrderIds.addAll(incomingIds);
+        _initialFetchDone = true;
+        ordersModel = newModel;
       }
     } catch (e) {
       debugPrint('getOrders error: $e');
@@ -158,7 +189,29 @@ class DashboardProvider extends ChangeNotifier {
     }
   }
 
-  // ── Countdown timer (3 min) ──────────────────────────────────────────────
+  // ── Auto-refresh (every 5 s) ──────────────────────────────────────────────
+  Timer? _refreshTimer;
+  BuildContext? _refreshContext;
+
+  void startAutoRefresh(BuildContext context) {
+    _refreshContext = context;
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      final ctx = _refreshContext;
+      if (ctx != null && ctx.mounted) {
+        getOrders(context: ctx, page: currentPage, silent: true);
+      }
+    });
+    log('⏱ Auto-refresh started');
+  }
+
+  void stopAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+    log('⏹ Auto-refresh stopped');
+  }
+
+  // ── Countdown timer (3 min) ───────────────────────────────────────────────
   int countdownSeconds = 180;
   Timer? _countdownTimer;
 
@@ -181,9 +234,37 @@ class DashboardProvider extends ChangeNotifier {
     return '$m   $s';
   }
 
+  // ── Beep (Web AudioContext — no package needed) ───────────────────────────
+  void _playBeep() {
+    try {
+      js.context.callMethod('eval', [
+        '''
+        (function() {
+          try {
+            var ctx = new (window.AudioContext || window.webkitAudioContext)();
+            var oscillator = ctx.createOscillator();
+            var gainNode = ctx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+            gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+            oscillator.start(ctx.currentTime);
+            oscillator.stop(ctx.currentTime + 0.4);
+          } catch(e) { console.warn('Beep failed:', e); }
+        })();
+        ''',
+      ]);
+    } catch (e) {
+      debugPrint('_playBeep error: $e');
+    }
+  }
+
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _refreshTimer?.cancel();
     super.dispose();
   }
 }

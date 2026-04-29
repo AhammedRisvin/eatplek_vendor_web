@@ -51,7 +51,7 @@ class AuthProvider extends ChangeNotifier {
       List response = await ServerClient.post(
         Urls.loginUrl,
         data: params,
-        post: true,
+        sendBody: true,
         context: context,
       );
 

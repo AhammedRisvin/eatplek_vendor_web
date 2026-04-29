@@ -150,12 +150,12 @@ class BannerNotifiylistener extends ChangeNotifier {
               '${Urls.getBannersUrl}/$bannerId',
               data: body,
               context: context,
-              put: true,
+              sendBody: true,
             )
           : await ServerClient.post(
               Urls.getBannersUrl,
               data: body,
-              post: true,
+              sendBody: true,
               context: context,
             );
 

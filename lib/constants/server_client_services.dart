@@ -34,132 +34,108 @@ class ServerClient {
     }
   }
 
-  // ── GET ───────────────────────────────────────────────────────────────────
-  static Future<List> get(String url, BuildContext context) async {
-    log(
-      'GET: $url | token: ${AppPref.userToken.isNotEmpty ? "present" : "missing"}',
-    );
+  // ── Core request handler ──────────────────────────────────────────────────
+  static Future<List> _request(
+    String method,
+    String url, {
+    Map<String, dynamic>? data,
+    bool sendBody = true,
+    required BuildContext context,
+  }) async {
+    final headers = _buildHeaders();
+    final String? encodedBody = (sendBody && data != null)
+        ? json.encode(data)
+        : null;
+
+    log('┌─── API REQUEST ───────────────────────────────');
+    log('│ Method  : $method');
+    log('│ URL     : $url');
+    log('│ Headers : $headers');
+    log('│ Body    : ${encodedBody ?? 'none'}');
+    log('└───────────────────────────────────────────────');
+
     try {
-      final response = await http
-          .get(Uri.parse(url), headers: _buildHeaders())
-          .timeout(const Duration(seconds: _timeout));
-      final data = await _response(response);
-      log('GET response: ${data.first}');
-      _handleSessionExpired(context, data);
-      return data;
+      final http.Response response;
+      final uri = Uri.parse(url);
+      const duration = Duration(seconds: _timeout);
+
+      switch (method) {
+        case 'GET':
+          response = await http.get(uri, headers: headers).timeout(duration);
+        case 'POST':
+          response = await http
+              .post(uri, body: encodedBody, headers: headers)
+              .timeout(duration);
+        case 'PUT':
+          response = await http
+              .put(uri, body: encodedBody, headers: headers)
+              .timeout(duration);
+        case 'PATCH':
+          response = await http
+              .patch(uri, body: encodedBody, headers: headers)
+              .timeout(duration);
+        case 'DELETE':
+          response = await http
+              .delete(uri, body: encodedBody, headers: headers)
+              .timeout(duration);
+        default:
+          throw UnsupportedError('Unsupported HTTP method: $method');
+      }
+
+      final parsed = await _response(response);
+
+      log('┌─── API RESPONSE ──────────────────────────────');
+      log('│ Method  : $method');
+      log('│ URL     : $url');
+      log('│ Status  : ${response.statusCode}');
+      log('│ Body    : ${response.body}');
+      log('└───────────────────────────────────────────────');
+
+      _handleSessionExpired(context, parsed);
+      return parsed;
     } catch (e) {
-      log('GET error: $e');
+      log('┌─── API ERROR ─────────────────────────────────');
+      log('│ Method  : $method');
+      log('│ URL     : $url');
+      log('│ Error   : $e');
+      log('└───────────────────────────────────────────────');
       _showNetworkError(context, e);
       return [600, e.toString()];
     }
   }
 
-  // ── POST ──────────────────────────────────────────────────────────────────
+  // ── Public HTTP methods ───────────────────────────────────────────────────
+
+  static Future<List> get(String url, BuildContext context) =>
+      _request('GET', url, context: context);
+
   static Future<List> post(
     String url, {
     Map<String, dynamic>? data,
-    bool post = true,
+    bool sendBody = true,
     required BuildContext context,
-  }) async {
-    log('POST: $url | body: $data');
-    try {
-      final body = json.encode(data);
-      final response = await http
-          .post(
-            Uri.parse(url),
-            body: post ? body : null,
-            headers: _buildHeaders(),
-          )
-          .timeout(const Duration(seconds: _timeout));
-      final returnResponse = await _response(response);
-      log('POST response: ${returnResponse.first}');
-      _handleSessionExpired(context, returnResponse);
-      return returnResponse;
-    } catch (e) {
-      log('POST error: $e');
-      _showNetworkError(context, e);
-      return [600, e.toString()];
-    }
-  }
+  }) => _request('POST', url, data: data, sendBody: sendBody, context: context);
 
-  // ── PUT ───────────────────────────────────────────────────────────────────
   static Future<List> put(
     String url, {
     Map<String, dynamic>? data,
-    bool put = false,
+    bool sendBody = true,
     required BuildContext context,
-  }) async {
-    log('PUT: $url | body: $data');
-    try {
-      final body = json.encode(data);
-      final response = await http
-          .put(
-            Uri.parse(url),
-            body: put ? null : body,
-            headers: _buildHeaders(),
-          )
-          .timeout(const Duration(seconds: _timeout));
-      final returnResponse = await _response(response);
-      log('PUT response: ${returnResponse.first}');
-      _handleSessionExpired(context, returnResponse);
-      return returnResponse;
-    } catch (e) {
-      log('PUT error: $e');
-      _showNetworkError(context, e);
-      return [600, e.toString()];
-    }
-  }
+  }) => _request('PUT', url, data: data, sendBody: sendBody, context: context);
 
-  // ── PATCH ─────────────────────────────────────────────────────────────────
   static Future<List> patch(
     String url, {
     Map<String, dynamic>? data,
-    bool patch = false,
+    bool sendBody = true,
     required BuildContext context,
-  }) async {
-    log('PATCH: $url | body: $data');
-    try {
-      final body = json.encode(data);
-      final response = await http
-          .patch(
-            Uri.parse(url),
-            body: patch ? null : body,
-            headers: _buildHeaders(),
-          )
-          .timeout(const Duration(seconds: _timeout));
-      final returnResponse = await _response(response);
-      log('PATCH response: ${returnResponse.first}');
-      _handleSessionExpired(context, returnResponse);
-      return returnResponse;
-    } catch (e) {
-      log('PATCH error: $e');
-      _showNetworkError(context, e);
-      return [600, e.toString()];
-    }
-  }
+  }) =>
+      _request('PATCH', url, data: data, sendBody: sendBody, context: context);
 
-  // ── DELETE ────────────────────────────────────────────────────────────────
   static Future<List> delete(
     String url, {
     Map<String, dynamic>? data,
     required BuildContext context,
-  }) async {
-    log('DELETE: $url');
-    try {
-      final jsonData = data != null ? json.encode(data) : null;
-      final response = await http
-          .delete(Uri.parse(url), headers: _buildHeaders(), body: jsonData)
-          .timeout(const Duration(seconds: _timeout));
-      final returnResponse = await _response(response);
-      log('DELETE response: ${returnResponse.first}');
-      _handleSessionExpired(context, returnResponse);
-      return returnResponse;
-    } catch (e) {
-      log('DELETE error: $e');
-      _showNetworkError(context, e);
-      return [600, e.toString()];
-    }
-  }
+  }) => _request('DELETE', url, data: data, context: context);
 
   // ── Network error helper ──────────────────────────────────────────────────
   static void _showNetworkError(BuildContext context, dynamic e) {

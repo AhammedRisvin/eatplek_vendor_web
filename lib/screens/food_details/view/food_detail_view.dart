@@ -156,8 +156,8 @@ class _FoodDetailViewState extends State<FoodDetailView> {
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(12),
                                   child: SizedBox(
-                                    width: 280,
-                                    height: 200,
+                                    width: 465,
+                                    height: 314,
                                     child:
                                         detail.foodImage != null &&
                                             detail.foodImage!.isNotEmpty
@@ -419,44 +419,6 @@ class _FoodDetailViewState extends State<FoodDetailView> {
                             ),
                           ],
                         ),
-                        Row(
-                          children: [
-                            _StatCard(
-                              label: 'Total Orders',
-                              value: more.totalOrders?.toString() ?? '0',
-                              icon: Icons.shopping_bag_outlined,
-                              iconBg: const Color(0xFFEDE9FE),
-                              iconColor: const Color(0xFF7C3AED),
-                            ),
-                            const SizedBox(width: 16),
-                            _StatCard(
-                              label: "Today's Orders",
-                              value: more.todayOrders?.toString() ?? '0',
-                              icon: Icons.trending_up_rounded,
-                              iconBg: const Color(0xFFFFF7E6),
-                              iconColor: const Color(0xFFD97706),
-                            ),
-                            const SizedBox(width: 16),
-                            _StatCard(
-                              label: 'Revenue Generated',
-                              value: more.revenueGenerated?.toString() ?? '0',
-                              icon: Icons.payments_outlined,
-                              iconBg: const Color(0xFFFFEDE9),
-                              iconColor: const Color(0xFFEF4444),
-                            ),
-                            const SizedBox(width: 16),
-                            _StatCard(
-                              label: 'Delivery Orders',
-                              value:
-                                  more.ordersByServiceType?.delivery
-                                      ?.toString() ??
-                                  '0',
-                              icon: Icons.delivery_dining_outlined,
-                              iconBg: const Color(0xFFE6F4EA),
-                              iconColor: const Color(0xFF16A34A),
-                            ),
-                          ],
-                        ),
                       ],
                     ],
                   ),
@@ -658,73 +620,6 @@ class _AddOnChip extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color iconBg;
-  final Color iconColor;
-
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.iconBg,
-    required this.iconColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: GoogleFonts.urbanist(
-                      fontSize: 12,
-                      color: AppColor.black60,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    value,
-                    style: GoogleFonts.urbanist(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: AppColor.black,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: iconColor, size: 22),
-            ),
-          ],
-        ),
       ),
     );
   }

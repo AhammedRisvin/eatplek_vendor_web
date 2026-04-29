@@ -130,7 +130,7 @@ class FoodDetailsProvider extends ChangeNotifier {
       final response = await ServerClient.patch(
         "${Urls.getFoodDetailUrl}$id/active",
         data: data,
-        patch: false,
+        sendBody: false,
         context: ctx,
       );
       log('response.first ${response.first} response.last ${response.last}');

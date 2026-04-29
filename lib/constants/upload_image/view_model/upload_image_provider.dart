@@ -1,31 +1,40 @@
-// ignore_for_file: avoid_print, depend_on_referenced_packages
+// ignore_for_file: depend_on_referenced_packages
+
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:http_parser/http_parser.dart';
 
+import '../../prefferences.dart';
+
 class UploadImageProvider extends ChangeNotifier {
   String imageUrlForUpload = '';
   String progress = '0';
   bool isUploading = false;
 
-  static const String _apiUrl = 'https://api-dev.eatplek.com/api/uploads/image';
+  static const String _apiUrl =
+      'https://eatplek-server-dev.onrender.com/api/uploads/image';
 
-  // ── Web upload (bytes) — used in Flutter Web ──────────────────────────────
-  Future<String> uploadImageWeb(Uint8List bytes, String fileName) async {
-    final Dio dio = Dio();
+  Future<String> uploadImageWeb(
+    Uint8List bytes,
+    String fileName, {
+    String folder = 'marketing/banners',
+  }) async {
+    final dio = Dio();
     try {
       isUploading = true;
+      progress = '0';
       notifyListeners();
 
       final extension = fileName.split('.').last.toLowerCase();
-      final contentType = MediaType('image', extension);
-
       final imagePart = MultipartFile.fromBytes(
         bytes,
         filename: fileName,
-        contentType: contentType,
+        contentType: MediaType(
+          'image',
+          extension == 'jpg' ? 'jpeg' : extension,
+        ),
       );
 
       final formData = FormData.fromMap({
@@ -34,34 +43,34 @@ class UploadImageProvider extends ChangeNotifier {
         'height': 800,
         'format': extension,
         'quality': 80,
-        'folder': 'marketing/banners',
+        'folder': folder,
       });
 
       final response = await dio.post(
         _apiUrl,
         data: formData,
+        options: Options(headers: _headers),
         onSendProgress: (sent, total) {
+          if (total <= 0) return;
           progress = (sent / total * 100).toStringAsFixed(0);
           notifyListeners();
         },
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        print('✅ Image Upload Successful: ${response.data['data']['url']}');
-        isUploading = false;
-        return imageUrlForUpload = response.data['data']['url'];
-      } else {
-        print('❌ Upload Failed: ${response.statusCode}');
-        isUploading = false;
-        return '';
+        final uploadedUrl = _extractImageUrl(response.data);
+        debugPrint('Image Upload Successful: $uploadedUrl');
+        imageUrlForUpload = uploadedUrl;
+        return uploadedUrl;
       }
+
+      debugPrint('Upload Failed: ${response.statusCode} ${response.data}');
+      return '';
     } on DioException catch (e) {
-      print('Dio Error: ${e.message}');
-      isUploading = false;
+      debugPrint('Dio upload error: ${e.message} ${e.response?.data}');
       return '';
     } catch (e) {
-      print('Upload error: $e');
-      isUploading = false;
+      debugPrint('Upload error: $e');
       return '';
     } finally {
       isUploading = false;
@@ -69,20 +78,22 @@ class UploadImageProvider extends ChangeNotifier {
     }
   }
 
-  // ── Mobile upload (file path) — kept for reference but not used on web ────
   Future<String> uploadImage(String filePath) async {
-    final Dio dio = Dio();
+    final dio = Dio();
     try {
       isUploading = true;
+      progress = '0';
       notifyListeners();
 
       final fileName = filePath.split('/').last;
       final extension = fileName.split('.').last.toLowerCase();
-
       final imagePart = await MultipartFile.fromFile(
         filePath,
         filename: fileName,
-        contentType: MediaType('image', extension),
+        contentType: MediaType(
+          'image',
+          extension == 'jpg' ? 'jpeg' : extension,
+        ),
       );
 
       final formData = FormData.fromMap({
@@ -97,29 +108,57 @@ class UploadImageProvider extends ChangeNotifier {
       final response = await dio.post(
         _apiUrl,
         data: formData,
+        options: Options(headers: _headers),
         onSendProgress: (sent, total) {
+          if (total <= 0) return;
           progress = (sent / total * 100).toStringAsFixed(0);
           notifyListeners();
         },
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        isUploading = false;
-        return imageUrlForUpload = response.data['data']['url'];
+        final uploadedUrl = _extractImageUrl(response.data);
+        imageUrlForUpload = uploadedUrl;
+        return uploadedUrl;
       }
-      isUploading = false;
       return '';
     } on DioException catch (e) {
-      print('Dio Error: ${e.message}');
-      isUploading = false;
+      debugPrint('Dio upload error: ${e.message} ${e.response?.data}');
       return '';
     } catch (e) {
-      print('Upload error: $e');
-      isUploading = false;
+      debugPrint('Upload error: $e');
       return '';
     } finally {
       isUploading = false;
       notifyListeners();
     }
+  }
+
+  Map<String, String> get _headers {
+    if (AppPref.userToken.isEmpty) return {};
+    return {'authorization': 'Bearer ${AppPref.userToken}'};
+  }
+
+  String _extractImageUrl(dynamic data) {
+    if (data is String) return data;
+    if (data is! Map) return '';
+
+    final direct = data['url'] ?? data['imageUrl'] ?? data['secure_url'];
+    if (direct is String) return direct;
+
+    final nested = data['data'];
+    if (nested is Map) {
+      final nestedUrl =
+          nested['url'] ?? nested['imageUrl'] ?? nested['secure_url'];
+      if (nestedUrl is String) return nestedUrl;
+    }
+
+    final file = data['file'];
+    if (file is Map) {
+      final fileUrl = file['url'] ?? file['imageUrl'] ?? file['secure_url'];
+      if (fileUrl is String) return fileUrl;
+    }
+
+    return '';
   }
 }

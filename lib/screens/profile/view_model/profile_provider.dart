@@ -93,7 +93,7 @@ class ProfileProvider extends ChangeNotifier {
       final response = await ServerClient.patch(
         '${Urls.getVendorProfileUrl}me/operating-hours',
         data: data,
-        patch: false,
+        sendBody: false,
         context: ctx,
       );
       log('patchOperatingHours: ${response.first}');
@@ -188,7 +188,7 @@ class ProfileProvider extends ChangeNotifier {
       List response = await ServerClient.post(
         '${Urls.getVendorProfileUrl}me/bank-account',
         data: body,
-        post: true,
+        sendBody: true,
         context: context,
       );
 

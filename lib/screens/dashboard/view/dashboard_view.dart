@@ -1,20 +1,16 @@
-// dashboard_view.dart  (refactored)
-// Only the table section changes — StatsRow, TopBar, etc. stay identical.
-
 import 'package:eatplek_vendor_web/constants/colors.dart';
 import 'package:eatplek_vendor_web/screens/dashboard/model/all_orders_model.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import '../../order_details/view/order_detail_dialog.dart';
 import '../../side_nav/view_model/side_nav_provider.dart';
 import '../../widgets/common_table.dart';
 import '../view_model/dashboard_provider.dart';
-import 'widget/order_details_dialog.dart';
 import 'widget/stats_row.dart';
 import 'widget/top_bar.dart';
 
-// ── Column definitions (declared once, used by AppDataTable) ─────────────────
 const _kOrderColumns = [
   AppTableColumn(label: 'Order ID', flex: 2),
   AppTableColumn(label: 'Customer', flex: 3),
@@ -38,7 +34,7 @@ class _DashboardViewState extends State<DashboardView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final nav = context.read<SideNavProvider>();
+    final nav = context.watch<SideNavProvider>();
     if (nav.selectedIndex == _kTabIndex && !_hasFetched) {
       _hasFetched = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -47,8 +43,19 @@ class _DashboardViewState extends State<DashboardView> {
         p.getRevenueData(context: context);
         p.getOrders(context: context, page: 1);
         p.startCountdown();
+        p.startAutoRefresh(context); // ← ADD THIS
       });
     }
+    // Stop polling when user switches away from dashboard tab
+    if (nav.selectedIndex != _kTabIndex) {
+      context.read<DashboardProvider>().stopAutoRefresh(); // ← ADD THIS
+    }
+  }
+
+  @override
+  void dispose() {
+    context.read<DashboardProvider>().stopAutoRefresh(); // ← ADD THIS
+    super.dispose();
   }
 
   @override
@@ -62,7 +69,6 @@ class _DashboardViewState extends State<DashboardView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Stats
                 Consumer<DashboardProvider>(
                   builder: (context, p, _) {
                     final stats = p.statsModel?.data;
@@ -90,17 +96,12 @@ class _DashboardViewState extends State<DashboardView> {
                   },
                 ),
                 const SizedBox(height: 20),
-
-                // Header
                 _latestOrdersHeader(),
                 const SizedBox(height: 16),
-
-                // ── Refactored table ─────────────────────────────────────
                 Consumer<DashboardProvider>(
                   builder: (context, p, _) {
                     final orders = p.ordersModel?.data.orders ?? [];
                     final pagination = p.ordersModel?.data.pagination;
-
                     return AppDataTable(
                       columns: _kOrderColumns,
                       isLoading: p.isLoadingOrders,
@@ -178,7 +179,6 @@ class _DashboardViewState extends State<DashboardView> {
   }
 }
 
-// ── Countdown box ─────────────────────────────────────────────────────────────
 class _CountdownBox extends StatelessWidget {
   final String value;
   const _CountdownBox({required this.value});
@@ -205,7 +205,6 @@ class _CountdownBox extends StatelessWidget {
   }
 }
 
-// ── Order row ─────────────────────────────────────────────────────────────────
 class _OrderRow extends StatelessWidget {
   final OrderItem order;
   const _OrderRow({required this.order});
@@ -224,7 +223,10 @@ class _OrderRow extends StatelessWidget {
           Expanded(flex: 2, child: _cell(order.orderType)),
           Expanded(
             flex: 2,
-            child: _cell('₹${order.amount.toStringAsFixed(0)}'),
+            child: _OrderIdCell(
+              orderId: '#${order.orderId}',
+              status: order.status,
+            ),
           ),
           Expanded(flex: 3, child: _StatusBadge(status: order.status)),
           Expanded(
@@ -232,7 +234,7 @@ class _OrderRow extends StatelessWidget {
             child: GestureDetector(
               onTap: () => showDialog(
                 context: context,
-                builder: (_) => OrderDetailDialog(order: order),
+                builder: (_) => OrderDetailDialog(bookingId: order.bookingId),
               ),
               child: Container(
                 padding: const EdgeInsets.symmetric(
@@ -266,7 +268,66 @@ class _OrderRow extends StatelessWidget {
   );
 }
 
-// ── Status badge ──────────────────────────────────────────────────────────────
+class _OrderIdCell extends StatefulWidget {
+  final String orderId;
+  final String status;
+  const _OrderIdCell({required this.orderId, required this.status});
+
+  @override
+  State<_OrderIdCell> createState() => _OrderIdCellState();
+}
+
+class _OrderIdCellState extends State<_OrderIdCell>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  bool get _isUntracked {
+    final s = widget.status.toLowerCase();
+    return s == 'new' || s == 'pending';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          widget.orderId,
+          style: GoogleFonts.urbanist(fontSize: 13, color: AppColor.black),
+        ),
+        if (_isUntracked) ...[
+          const SizedBox(width: 6),
+          FadeTransition(
+            opacity: _pulse,
+            child: Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: Color(0xFFEF4444),
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _StatusBadge extends StatelessWidget {
   final String status;
   const _StatusBadge({required this.status});

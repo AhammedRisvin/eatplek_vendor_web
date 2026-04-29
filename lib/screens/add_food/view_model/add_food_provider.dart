@@ -13,6 +13,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../category/model/category_model.dart';
+import '../../food_details/model/food_detail_model.dart' as food_detail;
 import '../../food_details/view_model/food_detail_provider.dart';
 import '../../foods/view_model/foods_provider.dart';
 import '../model/add_on_model.dart';
@@ -25,11 +26,12 @@ class AddFoodProvider extends ChangeNotifier {
   void setEditControllers({
     required bool isEdit,
     required BuildContext context,
+    food_detail.Data? foodData,
   }) {
     isFromEdit = isEdit;
     if (!isFromEdit) return;
 
-    final food = context.read<FoodDetailsProvider>().foodData;
+    final food = foodData ?? context.read<FoodDetailsProvider>().foodData;
     foodId = food.id ?? '';
     imageUrlForUpload = food.foodImage ?? '';
     foodNameController.text = food.foodName ?? '';
@@ -41,10 +43,30 @@ class AddFoodProvider extends ChangeNotifier {
     preparationTimeController.text = '${food.preparationTime ?? ''}';
     packingChargesController.text = '0';
     descriptionController.text = food.description ?? '';
+    isAddPreBook = food.isPrebook ?? isAddPreBook;
+    startDateController.text = food.prebookStartDate == null
+        ? ''
+        : DateFormat('yyyy-MM-dd').format(food.prebookStartDate!);
+    endDateController.text = food.prebookEndDate == null
+        ? ''
+        : DateFormat('yyyy-MM-dd').format(food.prebookEndDate!);
 
     for (final orderType in food.orderTypes ?? []) {
       type.add(orderType == 'take away' ? 'takeaway' : orderType);
     }
+
+    for (final customization in food.customizations ?? []) {
+      if (customization is Map) {
+        quantityList.add(
+          AddOnModel(
+            name: '${customization['name'] ?? ''}',
+            image: customization['image']?.toString(),
+            price: int.tryParse('${customization['price'] ?? 0}') ?? 0,
+          ),
+        );
+      }
+    }
+    hasQuantityOptions = quantityList.isNotEmpty;
 
     for (final addOn in food.addOns ?? []) {
       addOnList.add(
@@ -143,6 +165,7 @@ class AddFoodProvider extends ChangeNotifier {
 
   // ── Image upload (web — uses bytes) ───────────────────────────────────────
   String imageUrlForUpload = '';
+  Uint8List? foodImagePreviewBytes;
 
   Future<void> pickImageFromGalleryWeb(
     BuildContext context,
@@ -150,9 +173,21 @@ class AddFoodProvider extends ChangeNotifier {
     String fileName,
   ) async {
     try {
-      imageUrlForUpload = await context
+      foodImagePreviewBytes = bytes;
+      notifyListeners();
+
+      final uploadedUrl = await context
           .read<UploadImageProvider>()
           .uploadImageWeb(bytes, fileName);
+      if (uploadedUrl.isNotEmpty) {
+        imageUrlForUpload = uploadedUrl;
+      } else {
+        toast(
+          context,
+          title: 'Image upload failed. Please try again.',
+          backgroundColor: AppColor.red,
+        );
+      }
     } finally {
       notifyListeners();
     }
@@ -163,6 +198,15 @@ class AddFoodProvider extends ChangeNotifier {
   final TextEditingController addOnPriceController = TextEditingController();
   List<AddOnModel> addOnList = [];
   String addOnImage = '';
+  Uint8List? addOnPreviewBytes;
+
+  void clearAddOnDraft() {
+    addOnNameController.clear();
+    addOnPriceController.clear();
+    addOnImage = '';
+    addOnPreviewBytes = null;
+    notifyListeners();
+  }
 
   Future<void> addOnPickImageFromGalleryWeb(
     BuildContext context,
@@ -170,10 +214,21 @@ class AddFoodProvider extends ChangeNotifier {
     String fileName,
   ) async {
     try {
-      addOnImage = await context.read<UploadImageProvider>().uploadImageWeb(
-        bytes,
-        fileName,
-      );
+      addOnPreviewBytes = bytes;
+      notifyListeners();
+
+      final uploadedUrl = await context
+          .read<UploadImageProvider>()
+          .uploadImageWeb(bytes, fileName);
+      if (uploadedUrl.isNotEmpty) {
+        addOnImage = uploadedUrl;
+      } else {
+        toast(
+          context,
+          title: 'Image upload failed. Please try again.',
+          backgroundColor: AppColor.red,
+        );
+      }
     } finally {
       notifyListeners();
     }
@@ -213,6 +268,7 @@ class AddFoodProvider extends ChangeNotifier {
         ),
       );
       addOnImage = '';
+      addOnPreviewBytes = null;
       addOnNameController.clear();
       addOnPriceController.clear();
       notifyListeners();
@@ -237,6 +293,56 @@ class AddFoodProvider extends ChangeNotifier {
   final TextEditingController quantityNameController = TextEditingController();
   final TextEditingController quantityPriceController = TextEditingController();
   List<AddOnModel> quantityList = [];
+  String quantityImage = '';
+  Uint8List? quantityPreviewBytes;
+  bool hasQuantityOptions = false;
+
+  void setHasQuantityOptions(bool value) {
+    hasQuantityOptions = value;
+    if (!value) {
+      quantityList.clear();
+      clearQuantityDraft(notify: false);
+    }
+    notifyListeners();
+  }
+
+  void clearQuantityDraft({bool notify = true}) {
+    quantityNameController.clear();
+    quantityPriceController.clear();
+    quantityImage = '';
+    quantityPreviewBytes = null;
+    if (notify) notifyListeners();
+  }
+
+  void clearQuantities() {
+    setHasQuantityOptions(false);
+  }
+
+  Future<void> quantityPickImageFromGalleryWeb(
+    BuildContext context,
+    Uint8List bytes,
+    String fileName,
+  ) async {
+    try {
+      quantityPreviewBytes = bytes;
+      notifyListeners();
+
+      final uploadedUrl = await context
+          .read<UploadImageProvider>()
+          .uploadImageWeb(bytes, fileName);
+      if (uploadedUrl.isNotEmpty) {
+        quantityImage = uploadedUrl;
+      } else {
+        toast(
+          context,
+          title: 'Image upload failed. Please try again.',
+          backgroundColor: AppColor.red,
+        );
+      }
+    } finally {
+      notifyListeners();
+    }
+  }
 
   void addNewQuantityFn(BuildContext context) {
     if (quantityNameController.text.trim().isEmpty) {
@@ -259,11 +365,12 @@ class AddFoodProvider extends ChangeNotifier {
       quantityList.add(
         AddOnModel(
           name: quantityNameController.text.trim(),
+          image: quantityImage,
           price: int.parse(quantityPriceController.text.trim()),
         ),
       );
-      quantityNameController.clear();
-      quantityPriceController.clear();
+      hasQuantityOptions = true;
+      clearQuantityDraft();
       notifyListeners();
       Navigator.of(context).pop();
     } catch (e) {
@@ -285,14 +392,16 @@ class AddFoodProvider extends ChangeNotifier {
   // ── Add Food / Edit Food API call ─────────────────────────────────────────
   bool isFoodAdding = false;
 
-  Future<void> addFoodFn({required BuildContext context}) async {
+  bool validateAddFoodForm(BuildContext context) {
     if (imageUrlForUpload.isEmpty) {
       toast(
         context,
-        title: 'Please select image',
+        title: foodImagePreviewBytes == null
+            ? 'Please select food image'
+            : 'Please wait until image upload completes',
         backgroundColor: AppColor.red,
       );
-      return;
+      return false;
     }
     if (foodNameController.text.trim().isEmpty) {
       toast(
@@ -300,7 +409,7 @@ class AddFoodProvider extends ChangeNotifier {
         title: 'Please enter food name',
         backgroundColor: AppColor.red,
       );
-      return;
+      return false;
     }
     if (categoryId == null) {
       toast(
@@ -308,7 +417,7 @@ class AddFoodProvider extends ChangeNotifier {
         title: 'Please select category',
         backgroundColor: AppColor.red,
       );
-      return;
+      return false;
     }
     if (selectedType == null) {
       toast(
@@ -316,7 +425,7 @@ class AddFoodProvider extends ChangeNotifier {
         title: 'Please select type (Veg/Non-Veg)',
         backgroundColor: AppColor.red,
       );
-      return;
+      return false;
     }
     if (basePriceController.text.trim().isEmpty) {
       toast(
@@ -324,24 +433,69 @@ class AddFoodProvider extends ChangeNotifier {
         title: 'Please enter base price',
         backgroundColor: AppColor.red,
       );
-      return;
+      return false;
+    }
+    if (packingChargesController.text.trim().isEmpty) {
+      toast(
+        context,
+        title: 'Please enter packing charge',
+        backgroundColor: AppColor.red,
+      );
+      return false;
     }
     if (preparationTimeController.text.trim().isEmpty) {
       toast(
         context,
-        title: 'Please enter preparation time',
+        title: 'Please enter preparation time in minutes',
         backgroundColor: AppColor.red,
       );
-      return;
+      return false;
+    }
+    if (descriptionController.text.trim().isEmpty) {
+      toast(
+        context,
+        title: 'Please enter food description',
+        backgroundColor: AppColor.red,
+      );
+      return false;
     }
     if (type.isEmpty) {
       toast(
         context,
-        title: 'Please select at least one order type',
+        title: 'Please select at least one order availability',
         backgroundColor: AppColor.red,
       );
-      return;
+      return false;
     }
+    if (hasQuantityOptions && quantityList.isEmpty) {
+      toast(
+        context,
+        title: 'Please add at least one quantity option',
+        backgroundColor: AppColor.red,
+      );
+      return false;
+    }
+    if (isAddPreBook && startDateController.text.trim().isEmpty) {
+      toast(
+        context,
+        title: 'Please select prebook start date',
+        backgroundColor: AppColor.red,
+      );
+      return false;
+    }
+    if (isAddPreBook && endDateController.text.trim().isEmpty) {
+      toast(
+        context,
+        title: 'Please select prebook end date',
+        backgroundColor: AppColor.red,
+      );
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> addFoodFn({required BuildContext context}) async {
+    if (!validateAddFoodForm(context)) return;
 
     isFoodAdding = true;
     notifyListeners();
@@ -361,10 +515,14 @@ class AddFoodProvider extends ChangeNotifier {
         'preparationTime': int.tryParse(preparationTimeController.text) ?? 0,
         'orderTypes': orderTypes.map((t) => t.toLowerCase()).toList(),
         'customizations': quantityList
-            .map((e) => {'name': e.name, 'price': e.price})
+            .map((e) => {'name': e.name, 'price': e.price, 'image': e.image})
             .toList(),
         'isActive': true,
-        'isPrebook': false,
+        'isPrebook': isAddPreBook,
+        if (isAddPreBook) 'prebookStartDate': startDateController.text.trim(),
+        if (isAddPreBook) 'prebookEndDate': endDateController.text.trim(),
+        if (isAddPreBook && maximumGuestsController.text.trim().isNotEmpty)
+          'maximumGuests': int.tryParse(maximumGuestsController.text.trim()),
         'basePrice': num.tryParse(basePriceController.text),
         'packingCharges': num.tryParse(packingChargesController.text) ?? 0,
         'description': descriptionController.text.trim(),
@@ -385,7 +543,7 @@ class AddFoodProvider extends ChangeNotifier {
           : await ServerClient.post(
               Urls.addFoodUrl,
               data: body,
-              post: true,
+              sendBody: true,
               context: context,
             );
 
@@ -398,7 +556,10 @@ class AddFoodProvider extends ChangeNotifier {
             context: context,
           );
         }
-        context.read<FoodsProvider>().getFoodFn(context: context);
+        context.read<FoodsProvider>().getFoodFn(
+          context: context,
+          isPrebook: isAddPreBook,
+        );
         toast(
           context,
           title: isFromEdit
@@ -406,8 +567,6 @@ class AddFoodProvider extends ChangeNotifier {
               : 'Food added successfully',
           backgroundColor: AppColor.darkBlue,
         );
-        // Pop twice — confirm dialog + add food screen
-        Navigator.of(context).pop();
         Navigator.of(context).pop();
       } else {
         toast(
@@ -443,11 +602,13 @@ class AddFoodProvider extends ChangeNotifier {
   void setingStartDateFn({required dynamic dateTimeDynamic}) {
     final dateTime = DateTime.parse(dateTimeDynamic.toString());
     startDateController.text = DateFormat('yyyy-MM-dd').format(dateTime);
+    notifyListeners();
   }
 
   void setingEndDateFn({required dynamic dateTimeDynamic}) {
     final dateTime = DateTime.parse(dateTimeDynamic.toString());
     endDateController.text = DateFormat('yyyy-MM-dd').format(dateTime);
+    notifyListeners();
   }
 
   // ── Clear ─────────────────────────────────────────────────────────────────
@@ -455,6 +616,7 @@ class AddFoodProvider extends ChangeNotifier {
     isFromEdit = false;
     foodId = null;
     imageUrlForUpload = '';
+    foodImagePreviewBytes = null;
     foodNameController.clear();
     categoryId = null;
     selectedCategory = null;
@@ -466,8 +628,12 @@ class AddFoodProvider extends ChangeNotifier {
     descriptionController.clear();
     type.clear();
     quantityList.clear();
+    quantityImage = '';
+    quantityPreviewBytes = null;
+    hasQuantityOptions = false;
     addOnList.clear();
     addOnImage = '';
+    addOnPreviewBytes = null;
     isAddPreBook = false;
     startDateController.clear();
     endDateController.clear();

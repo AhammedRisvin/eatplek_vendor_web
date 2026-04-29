@@ -11,6 +11,7 @@ import '../screens/earnings/view_model/revenue_notify_listner.dart';
 import '../screens/food_details/view_model/food_detail_provider.dart';
 import '../screens/foods/view_model/foods_provider.dart';
 import '../screens/login/view_model/auth_provider.dart';
+import '../screens/order_details/view_model/order_details_view_model.dart';
 import '../screens/orders/view_model/order_provider.dart';
 import '../screens/profile/view_model/profile_provider.dart';
 import '../screens/side_nav/view_model/side_nav_provider.dart';
@@ -34,8 +35,9 @@ class Providers {
     ChangeNotifierProvider(create: (context) => CategoryProvider()),
     ChangeNotifierProvider(create: (context) => DeliveryBoyProvider()),
     ChangeNotifierProvider(create: (context) => ProfileProvider()),
+    ChangeNotifierProvider(create: (context) => OrderDetailProvider()),
 
-    // ── Uncomment as each screen is built ──
+    // ── Uncomment as each screen is built  OrderDetailProvider ──
 
     // ChangeNotifierProvider(create: (context) => HomeProvider()),
     // ChangeNotifierProvider(create: (context) => BottomBarProvider()),

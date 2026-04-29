@@ -6,9 +6,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../dashboard/model/all_orders_model.dart';
-import '../../dashboard/view/widget/order_details_dialog.dart';
 import '../../dashboard/view/widget/stats_row.dart';
 import '../../dashboard/view/widget/top_bar.dart';
+import '../../order_details/view/order_detail_dialog.dart';
 import '../../side_nav/view_model/side_nav_provider.dart';
 import '../../widgets/common_table.dart';
 import '../view_model/order_provider.dart';
@@ -36,7 +36,7 @@ class _OrdersManagementViewState extends State<OrdersManagementView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final nav = context.read<SideNavProvider>();
+    final nav = context.watch<SideNavProvider>();
     if (nav.selectedIndex == _kTabIndex && !_hasFetched) {
       _hasFetched = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -142,7 +142,7 @@ class _OrderRow extends StatelessWidget {
             child: GestureDetector(
               onTap: () => showDialog(
                 context: context,
-                builder: (_) => OrderDetailDialog(order: order),
+                builder: (_) => OrderDetailDialog(bookingId: order.bookingId),
               ),
               child: Container(
                 padding: const EdgeInsets.symmetric(

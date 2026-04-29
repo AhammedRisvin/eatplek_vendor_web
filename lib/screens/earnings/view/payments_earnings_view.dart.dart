@@ -38,7 +38,7 @@ class _PaymentsEarningsViewState extends State<PaymentsEarningsView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final nav = context.read<SideNavProvider>();
+    final nav = context.watch<SideNavProvider>();
     if (nav.selectedIndex == _kTabIndex && !_hasFetched) {
       _hasFetched = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {

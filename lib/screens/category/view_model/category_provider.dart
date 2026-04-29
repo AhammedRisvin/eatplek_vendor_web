@@ -110,7 +110,7 @@ class CategoryProvider extends ChangeNotifier {
       List response = await ServerClient.post(
         Urls.addCategoryUrl,
         data: body,
-        post: true,
+        sendBody: true,
         context: context,
       );
 
@@ -197,7 +197,7 @@ class CategoryProvider extends ChangeNotifier {
       List response = await ServerClient.put(
         '${Urls.deleteCategoryUrl}$categoryId',
         data: body,
-        put: false,
+        sendBody: false,
         context: context,
       );
 

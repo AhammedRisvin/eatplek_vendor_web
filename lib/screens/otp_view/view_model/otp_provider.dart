@@ -135,7 +135,7 @@ class OtpProvider extends ChangeNotifier {
       List response = await ServerClient.post(
         Urls.loginUrl,
         data: params,
-        post: true,
+        sendBody: true,
         context: context,
       );
       if (response.first >= 200 && response.first < 300) {

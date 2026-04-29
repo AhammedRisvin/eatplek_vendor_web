@@ -200,7 +200,7 @@ class AddTodayOfferProvider extends ChangeNotifier {
       List response = await ServerClient.post(
         "${Urls.getFoodDetailUrl}$selectedFoodId/day-offers",
         data: body,
-        post: true,
+        sendBody: true,
         context: context,
       );
       log(

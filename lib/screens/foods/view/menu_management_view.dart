@@ -28,7 +28,7 @@ class _MenuManagementViewState extends State<MenuManagementView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final nav = context.read<SideNavProvider>();
+    final nav = context.watch<SideNavProvider>();
     if (nav.selectedIndex == _kTabIndex && !_hasFetched) {
       _hasFetched = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -146,17 +146,24 @@ class _FoodGrid extends StatelessWidget {
 
         return LayoutBuilder(
           builder: (context, constraints) {
-            int columns = 4;
-            if (constraints.maxWidth < 900) columns = 3;
-            if (constraints.maxWidth < 650) columns = 2;
+            const cardHeight = 302.0;
+            const spacing = 24.0;
+            const minCardWidth = 274.0;
+            final columns =
+                ((constraints.maxWidth + spacing) / (minCardWidth + spacing))
+                    .floor()
+                    .clamp(1, 4);
+            final cardWidth =
+                (constraints.maxWidth - (spacing * (columns - 1))) / columns;
+
             return GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: columns,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 1.08,
+                crossAxisSpacing: spacing,
+                mainAxisSpacing: spacing,
+                childAspectRatio: cardWidth / cardHeight,
               ),
               itemCount: foods.length,
               itemBuilder: (context, index) =>
@@ -183,75 +190,68 @@ class _FoodCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.black.withValues(alpha: 0.10)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Image
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: food.foodImage != null && food.foodImage!.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: food.foodImage!,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => _ImgPlaceholder(),
-                      errorWidget: (_, __, ___) => _ImgPlaceholder(),
-                    )
-                  : _ImgPlaceholder(),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                height: 118,
+                width: double.infinity,
+                child: food.foodImage != null && food.foodImage!.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: food.foodImage!,
+                        fit: BoxFit.cover,
+                        placeholder: (_, __) => _ImgPlaceholder(),
+                        errorWidget: (_, __, ___) => _ImgPlaceholder(),
+                      )
+                    : _ImgPlaceholder(),
+              ),
             ),
-          ),
 
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
+            const SizedBox(height: 16),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     food.foodName ?? '',
                     style: GoogleFonts.urbanist(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
                       color: AppColor.black,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
                   Text(
                     food.type ?? '',
                     style: GoogleFonts.urbanist(
                       fontSize: 12,
-                      color: (food.type ?? '').toLowerCase() == 'veg'
-                          ? const Color(0xFF16A34A)
-                          : const Color(0xFFEF4444),
-                      fontWeight: FontWeight.w500,
+                      color: AppColor.black,
+                      fontWeight: FontWeight.w400,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
 
-                  // Prebook date badge
                   if (isPrebook &&
                       food.prebookStartDate != null &&
                       food.prebookEndDate != null) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 6,
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColor.darkBlue.withOpacity(0.08),
+                        color: AppColor.darkBlue.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -264,14 +264,13 @@ class _FoodCard extends StatelessWidget {
                       ),
                     ),
                   ],
-
                   const Spacer(),
                   Row(
                     children: [
                       Text(
                         '₹${food.basePrice?.toStringAsFixed(0) ?? '0'}',
                         style: GoogleFonts.urbanist(
-                          fontSize: 14,
+                          fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: AppColor.black,
                         ),
@@ -287,10 +286,10 @@ class _FoodCard extends StatelessWidget {
                           ),
                         ),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
+                          width: 98,
+                          height: 32,
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
                           decoration: BoxDecoration(
                             color: AppColor.darkBlue,
                             borderRadius: BorderRadius.circular(6),
@@ -310,8 +309,8 @@ class _FoodCard extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
